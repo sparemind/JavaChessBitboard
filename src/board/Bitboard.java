@@ -1,18 +1,18 @@
+package board;
+
+import static board.Piece.PLAYERS;
+import static board.Piece.Player.BLACK;
+import static board.Piece.Player.WHITE;
+
+/**
+ * A bitboard representation of a chess position.
+ * <p>
+ * Uses Little-Endian Rank-File (LERF) mapping.
+ */
 public class Bitboard {
     // @formatter:off
     public static final int SIZE = 8;
     public static final int SQUARES = 64;
-
-    public static final int PLAYERS = 2;
-    public static final int WHITE = 0;
-    public static final int BLACK = 1;
-
-    public static final int PAWN   = 0;
-    public static final int KNIGHT = 1;
-    public static final int BISHOP = 2;
-    public static final int ROOK   = 3;
-    public static final int QUEEN  = 4;
-    public static final int KING   = 5;
 
     public static final int NUM_PIECES = 6;
     public static final char[] PIECES = {
@@ -74,24 +74,92 @@ public class Bitboard {
     ///////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////
 
+    // Bitboards for each player and their pieces: [player][piece]
     private final long[][] boards;
-    private short halfmoveClock;
+    // Number of half-moves since the last pawn capture or piece advance
+    private byte halfmoveClock;
+    // Number of half-moves
     private short ply;
+    // Whether a player can castle.
+    // Bit 1: White can castle kingside
+    // Bit 2: White can castle queenside
+    // Bit 3: Black can castle kingside
+    // Bit 4: Black can castle queenside
+    private byte possibleCastling;
+    // Square that can be moved to in an en passant capture
+    private byte enpassantSquare;
+    // Whether it is white's turn or not
     private boolean whitesTurn;
 
+    /**
+     * Creates a new empty bitboard.
+     */
     public Bitboard() {
         this.boards = new long[PLAYERS][STARTING_WHITE_PIECES.length];
         this.halfmoveClock = 0;
         this.ply = 0;
+        this.possibleCastling = 0b1111;
+        this.enpassantSquare = 0;
         this.whitesTurn = true;
     }
 
+    /**
+     * Initializes this bitboard to be the starting position of a game.
+     */
     public void initStartingBoard() {
         System.arraycopy(STARTING_WHITE_PIECES, 0, this.boards[WHITE], 0, STARTING_WHITE_PIECES.length);
         System.arraycopy(STARTING_BLACK_PIECES, 0, this.boards[BLACK], 0, STARTING_BLACK_PIECES.length);
         this.halfmoveClock = 0;
         this.ply = 0;
+        this.possibleCastling = 0b1111;
+        this.enpassantSquare = 0;
         this.whitesTurn = true;
+    }
+
+    /**
+     * Counts the number of 1 bits in a given bitboard.
+     *
+     * @param board The board to count the 1 bits of.
+     * @return The number of 1 bits in the given board.
+     */
+    public int count(long board) {
+        int count = 0;
+        while (board != 0) {
+            count++;
+            // Remove least significant 1 bit
+            board &= board - 1;
+        }
+        return count;
+    }
+
+    public static String bitboardToString(long bitboard) {
+        StringBuilder s = new StringBuilder();
+
+        for (int rank = SIZE - 1; rank >= 0; rank--) {
+            // The rank number
+            s.append(rank + 1);
+            // The pieces in this rank
+            for (int file = 0; file < SIZE; file++) {
+                int square = rank * SIZE + file;
+                boolean occupied = ((1L << square) & bitboard) != 0;
+
+                char c;
+                if (occupied) {
+                    c = 'X';
+                } else {
+                    c = '.';
+                }
+                s.append(' ').append(c);
+            }
+            s.append('\n');
+        }
+        // The file letters
+        s.append("  ");
+        for (int i = 0; i < SIZE; i++) {
+            s.append((char) ('a' + i)).append(' ');
+        }
+
+        return s.toString();
     }
 
     @Override
@@ -100,6 +168,7 @@ public class Bitboard {
 
         char[][] combinedBoard = new char[SIZE][SIZE];
 
+        // Fill combinedBoard with characters representing each square/piece
         for (int player = 0; player < this.boards.length; player++) {
             for (int piece = 0; piece < this.boards[player].length; piece++) {
                 long pieceBoard = this.boards[player][piece];
@@ -119,19 +188,27 @@ public class Bitboard {
             }
         }
 
+        // Process each rank
         for (int i = combinedBoard.length - 1; i >= 0; i--) {
-            s.append(i + 1).append(' ');
+            // The rank number
+            s.append(i + 1);
+            // The pieces in this rank
             for (char square : combinedBoard[i]) {
-                s.append(square).append(' ');
+                s.append(' ').append(square);
             }
             s.append('\n');
         }
+        // The file letters
         s.append("  ");
         for (int i = 0; i < SIZE; i++) {
             s.append((char) ('a' + i)).append(' ');
         }
 
         return s.toString();
+    }
+
+    public static long getFile(int file) {
+        return FILES[file];
     }
 
     public static class File {
