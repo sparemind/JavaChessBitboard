@@ -220,7 +220,7 @@ public class Piece {
             result |= (result >>> direction) & enemyBoard;
         }
 
-        return result;
+        return result & ~pieceBoard;
     }
 
     public static class Player {

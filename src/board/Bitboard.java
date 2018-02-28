@@ -339,6 +339,21 @@ public class Bitboard {
                 pieceBoard &= ~nextPieceSquare;
             }
         }
+
+        // Determine castling moves
+        boolean canKingsideCastle = this.whitesTurn ? (this.possibleCastling & 0b0001) != 0 : (this.possibleCastling & 0b0100) != 0;
+        boolean canQueensideCastle = this.whitesTurn ? (this.possibleCastling & 0b0010) != 0 : (this.possibleCastling & 0b1000) != 0;
+        byte rank = (byte) (this.whitesTurn ? 0 : 7);
+        Piece src = new Piece(color, (byte) Type.KING, position(4, rank));
+        if (canKingsideCastle) {
+            Piece dest = new Piece(color, (byte) Type.EMPTY, position(6, rank));
+            moves.add(new Move(src, dest, 0, Move.KINGSIDE_CASTLE));
+        }
+        if (canQueensideCastle) {
+            Piece dest = new Piece(color, (byte) Type.EMPTY, position(2, rank));
+            moves.add(new Move(src, dest, 0, Move.QUEENSIDE_CASTLE));
+        }
+
         return moves;
     }
 
