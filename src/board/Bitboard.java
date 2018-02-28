@@ -77,7 +77,7 @@ public class Bitboard {
     ///////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////
 
-    // Bitboards for each player and their pieces: [player][piece]
+    // Bitmaps for each player and their pieces: [player][piece]
     private final long[][] boards;
     // Number of half-moves since the last pawn capture or piece advance
     private byte halfmoveClock;
@@ -189,17 +189,17 @@ public class Bitboard {
     }
 
     /**
-     * Counts the number of 1 bits in a given bitboard.
+     * Counts the number of 1 bits in a given bitmap.
      *
-     * @param board The board to count the 1 bits of.
-     * @return The number of 1 bits in the given board.
+     * @param bitmap The bitmap to count the 1 bits of.
+     * @return The number of 1 bits in the given bitmap.
      */
-    public static int count(long board) {
+    public static int count(long bitmap) {
         int count = 0;
-        while (board != 0) {
+        while (bitmap != 0) {
             count++;
             // Remove LS1B
-            board &= board - 1;
+            bitmap &= bitmap - 1;
         }
         return count;
     }
@@ -223,12 +223,16 @@ public class Bitboard {
     }
 
     public static long square(byte position) {
-        long file = position & FILE_MASK;
-        long rank = (position & RANK_MASK) >>> 4;
+        int file = position & FILE_MASK;
+        int rank = (position & RANK_MASK) >>> 4;
+        return square(file, rank);
+    }
+
+    public static long square(int file, int rank) {
         return (rank << 3) + file;
     }
 
-    public static String bitboardToString(long bitboard) {
+    public static String bitmapToString(long bitmap) {
         StringBuilder s = new StringBuilder();
 
         for (int rank = SIZE - 1; rank >= 0; rank--) {
@@ -237,7 +241,7 @@ public class Bitboard {
             // The pieces in this rank
             for (int file = 0; file < SIZE; file++) {
                 int square = rank * SIZE + file;
-                boolean occupied = ((1L << square) & bitboard) != 0;
+                boolean occupied = ((1L << square) & bitmap) != 0;
 
                 char c;
                 if (occupied) {
@@ -294,6 +298,7 @@ public class Bitboard {
             playerBitmap |= playerBoards[i];
             playerBitmap |= enemyBoards[i];
         }
+        long blockers = playerBitmap | enemyBitmap;
         final long enpassantBoard = (this.enpassantSquare == 0) ? 0 : 1L << (square(this.enpassantSquare));
 
         List<Move> moves = new ArrayList<>();
@@ -345,11 +350,11 @@ public class Bitboard {
         boolean canQueensideCastle = this.whitesTurn ? (this.possibleCastling & 0b0010) != 0 : (this.possibleCastling & 0b1000) != 0;
         byte rank = (byte) (this.whitesTurn ? 0 : 7);
         Piece src = new Piece(color, (byte) Type.KING, position(4, rank));
-        if (canKingsideCastle) {
+        if (canKingsideCastle && ((1L << square(5, rank)) & blockers) == 0) {
             Piece dest = new Piece(color, (byte) Type.EMPTY, position(6, rank));
             moves.add(new Move(src, dest, 0, Move.KINGSIDE_CASTLE));
         }
-        if (canQueensideCastle) {
+        if (canQueensideCastle && ((1L << square(3, rank)) & blockers) == 0) {
             Piece dest = new Piece(color, (byte) Type.EMPTY, position(2, rank));
             moves.add(new Move(src, dest, 0, Move.QUEENSIDE_CASTLE));
         }
