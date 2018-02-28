@@ -5,18 +5,26 @@ import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
-        Bitboard b = new Bitboard("4k3/8/8/8/8/8/8/4K3 w KQkq - 0 0");
+        Bitboard b = new Bitboard("r3k2r/1P6/1N6/8/2b5/8/8/R3K2R w KQkq - 0 0");
         // b.initStartingBoard();
 
-        List<Move> moves = b.generatePseudoMoves();
+        List<Move> moves = b.generateMoves();
         System.out.println(moves.size());
         System.out.println(moves);
-
         System.out.println(b);
-        b.applyMove(moves.get(5));
+        int move = 3;
+        b.applyMove(moves.get(move));
         b.undoMove();
-        // b.applyMove(moves.get(5));
+        // b.applyMove(moves.get(move));
         System.out.println(b);
+
+        int i = 0;
+        for (Move m : moves) {
+            System.out.println(i++);
+            b.applyMove(m);
+            System.out.println(b);
+            b.undoMove();
+        }
 
         // System.out.println();
         // System.out.println(Bitboard.bitmapToString(Piece.getMoveBitmap(KNIGHT, (1L << 39 | 1L << 45), 1L << 45, 0L, (byte) 0)));

@@ -48,6 +48,7 @@ public class Move implements Comparable<Move> {
         if (promotion != 0) {
             // Set what piece this is promoted to
             b |= (promotion - 1) & SPECIAL_MASK;
+            b |= PROMOTION_MASK;
         }
         // Set if this is a double pawn push
         if (src.type() == Piece.Type.PAWN) {

@@ -209,7 +209,7 @@ public class Bitboard {
     }
 
     public static int ls1bSquare(long x) {
-        return LS1B_LOOKUP[(int) (ls1b(x) % 67)];
+        return LS1B_LOOKUP[Math.abs((int) (ls1b(x) % 67))];
     }
 
     public static long ls1b(long x) {
@@ -288,7 +288,7 @@ public class Bitboard {
     }
 
     public void applyMove(Move move) {
-        this.undoStack.addFirst(new UndoMove(this, move));
+        this.undoStack.addFirst(new UndoMove(this.enpassantPosition, this.halfmoveClock, this.possibleCastling, move));
 
         final byte color = (byte) (this.whitesTurn ? 0 : 1);
         final long srcSquare = square(move.src.position);
@@ -311,6 +311,27 @@ public class Bitboard {
         // If this move is a capture, remove the enemy piece
         if (move.isCapture()) {
             this.boards[1 - color][destPiece] &= ~(1L << destSquare);
+        }
+
+        // If the king moves, no castling is possible
+        if (srcPiece == Type.KING) {
+            if (this.whitesTurn) {
+                this.possibleCastling &= 0b1100;
+            } else {
+                this.possibleCastling &= 0b0011;
+            }
+        }
+        // If a rook moves, castling on that side is no longer possible
+        if (srcPiece == Type.ROOK) {
+            byte rookFile = move.src.file();
+            byte mask;
+            if (rookFile == File.H) {
+                mask = 0b01;
+            } else {
+                mask = 0b10;
+            }
+            mask <<= this.whitesTurn ? 0 : 2;
+            this.possibleCastling &= ~mask;
         }
 
         // If this is a castling move, everything can happen as normal. The only
@@ -385,7 +406,7 @@ public class Bitboard {
         }
         // If this move was a capture, put the enemy piece back
         if (undoMove.move.isCapture()) {
-            this.boards[1 - color][destPiece] &= ~(1L << destSquare);
+            this.boards[1 - color][destPiece] |= 1L << destSquare;
         }
 
         // If it was a castling move, everything can happen as normal. The only
@@ -410,6 +431,9 @@ public class Bitboard {
             this.boards[color][Type.ROOK] |= 1L << square(rookSrcFile, rank);
         }
 
+        // Update castling options
+        this.possibleCastling = undoMove.possibleCastling;
+
         // Update the half-move clock
         this.halfmoveClock = undoMove.halfmoveClock;
 
@@ -426,16 +450,47 @@ public class Bitboard {
         List<Move> pseudoMoves = generatePseudoMoves();
         List<Move> moves = new ArrayList<>();
 
-        // TODO castling
-
+        final byte color = (byte) (this.whitesTurn ? 0 : 1);
         for (Move move : pseudoMoves) {
+            // Check if a castling move can legally be carried out.
+            if (move.isCastle()) {
+                byte rank = (byte) (this.whitesTurn ? 0 : 7);
+                long attackBitmap = generateAttackBitmap(1 - color);
+
+                // If the king is in check, it can't castle
+                if ((attackBitmap & this.boards[color][Type.KING]) != 0) {
+                    continue;
+                }
+
+                // The file inbetween the king and its castling destination
+                byte inbetweenFile;
+                if (move.castleType() == 1) {
+                    // King-side castle
+                    inbetweenFile = File.F;
+                } else {
+                    // Queen-side castle
+                    inbetweenFile = File.D;
+                }
+
+                // If the king would pass through check, it can't castle
+                if ((attackBitmap & (1L << square(inbetweenFile, rank))) != 0) {
+                    continue;
+                }
+            }
+
             applyMove(move);
-            if (true) {
+            if (!inCheck(color)) {
                 moves.add(move);
             }
             undoMove();
         }
         return moves;
+    }
+
+    public boolean inCheck(int player) {
+        long attackBitmap = generateAttackBitmap(1 - player);
+
+        return (this.boards[player][Type.KING] & attackBitmap) != 0;
     }
 
     public List<Move> generatePseudoMoves() {
@@ -447,7 +502,7 @@ public class Bitboard {
         long enemyBitmap = 0;
         for (int i = 0; i < NUM_PIECES; i++) {
             playerBitmap |= playerBoards[i];
-            playerBitmap |= enemyBoards[i];
+            enemyBitmap |= enemyBoards[i];
         }
         long blockers = playerBitmap | enemyBitmap;
         final long enpassantBoard = (this.enpassantPosition == 0) ? 0 : 1L << (square(this.enpassantPosition));
@@ -486,7 +541,7 @@ public class Bitboard {
 
                     Piece dest = new Piece((byte) (1 - color), (byte) destPiece, destPosition);
                     byte promotionPiece = 0;
-                    if (piece == Type.PAWN && dest.rank() == 0 || dest.rank() == 7) {
+                    if (piece == Type.PAWN && (dest.rank() == 0 || dest.rank() == 7)) {
                         promotionPiece = Type.QUEEN;
                     }
                     moves.add(new Move(src, dest, promotionPiece, 0, destPiece != Type.EMPTY));
@@ -517,16 +572,15 @@ public class Bitboard {
         return moves;
     }
 
-    private long generateMoveBitmap(int player) {
-        final byte color = (byte) (this.whitesTurn ? 0 : 1);
-        final long[] playerBoards = this.boards[color];
-        final long[] enemyBoards = this.boards[1 - color];
+    private long generateAttackBitmap(int player) {
+        final long[] playerBoards = this.boards[player];
+        final long[] enemyBoards = this.boards[1 - player];
 
         long playerBitmap = 0;
         long enemyBitmap = 0;
         for (int i = 0; i < NUM_PIECES; i++) {
             playerBitmap |= playerBoards[i];
-            playerBitmap |= enemyBoards[i];
+            enemyBitmap |= enemyBoards[i];
         }
         final long enpassantBoard = (this.enpassantPosition == 0) ? 0 : 1L << (square(this.enpassantPosition));
 
@@ -538,14 +592,6 @@ public class Bitboard {
             result |= Piece.getMoveBitmap(piece, pieceBoard, playerBitmap, enemyBitmap, enpassantBoard);
         }
         return result;
-    }
-
-    public byte getEnpassantPosition() {
-        return this.enpassantPosition;
-    }
-
-    public byte getHalfmoveClock() {
-        return this.halfmoveClock;
     }
 
     @Override
