@@ -20,15 +20,6 @@ public class Bitboard {
     public static final int NUM_PIECES = 6;
     public static final String PIECES = "PNBRQKpnbrqk";
 
-    private static final int N  = 8;
-    private static final int NE = 9;
-    private static final int E  = 1;
-    private static final int SE = -7;
-    private static final int S  = -8;
-    private static final int SW = -9;
-    private static final int W  = -1;
-    private static final int NW = 7;
-
     private static final long[] STARTING_WHITE_PIECES = {
         0x000000000000FF00L, // Pawns
         0x0000000000000042L, // Knights

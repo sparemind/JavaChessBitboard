@@ -18,6 +18,18 @@ public class Piece {
     // Bit mask to get the highest 4 bits of a byte
     public static final byte RANK_MASK = (byte) 0b11110000;
 
+    // Compass direction
+    // @formatter:off
+    private static final int N  = 8;
+    private static final int NE = 9;
+    private static final int E  = 1;
+    private static final int SE = -7;
+    private static final int S  = -8;
+    private static final int SW = -9;
+    private static final int W  = -1;
+    private static final int NW = 7;
+    // @formatter:on
+
     // This piece's color and type.
     // Highest bit is the color, all others are the type.
     public final byte piece;
@@ -140,19 +152,75 @@ public class Piece {
     }
 
     private static long getBishopBitmap(long pieceBoard, long myBoard, long enemyBoard) {
-        return 0;
+        long result = 0;
+
+        result |= dumb7Fill(pieceBoard, myBoard, enemyBoard, NE, Bitboard.getFile(File.A));
+        result |= dumb7Fill(pieceBoard, myBoard, enemyBoard, SE, Bitboard.getFile(File.A));
+        result |= dumb7Fill(pieceBoard, myBoard, enemyBoard, SW, Bitboard.getFile(File.H));
+        result |= dumb7Fill(pieceBoard, myBoard, enemyBoard, NW, Bitboard.getFile(File.H));
+
+        return result;
     }
 
     private static long getRookBitmap(long pieceBoard, long myBoard, long enemyBoard) {
-        return 0;
+        long result = 0;
+
+        result |= dumb7Fill(pieceBoard, myBoard, enemyBoard, N, 0);
+        result |= dumb7Fill(pieceBoard, myBoard, enemyBoard, E, Bitboard.getFile(File.A));
+        result |= dumb7Fill(pieceBoard, myBoard, enemyBoard, S, 0);
+        result |= dumb7Fill(pieceBoard, myBoard, enemyBoard, W, Bitboard.getFile(File.H));
+
+        return result;
     }
 
     private static long getQueenBitmap(long pieceBoard, long myBoard, long enemyBoard) {
-        return 0;
+        return getRookBitmap(pieceBoard, myBoard, enemyBoard) | getBishopBitmap(pieceBoard, myBoard, enemyBoard);
     }
 
     private static long getKingBitmap(long pieceBoard, long myBoard, long enemyBoard) {
-        return 0;
+        long result = 0;
+
+        result |= (pieceBoard << NW) & ~(myBoard | Bitboard.getFile(File.H));
+        result |= (pieceBoard << N) & ~myBoard;
+        result |= (pieceBoard << NE) & ~(myBoard | Bitboard.getFile(File.A));
+        result |= (pieceBoard << E) & ~(myBoard | Bitboard.getFile(File.A));
+
+        result |= (pieceBoard >>> NW) & ~(myBoard | Bitboard.getFile(File.A));
+        result |= (pieceBoard >>> N) & ~myBoard;
+        result |= (pieceBoard >>> NE) & ~(myBoard | Bitboard.getFile(File.H));
+        result |= (pieceBoard >>> E) & ~(myBoard | Bitboard.getFile(File.H));
+
+        return result;
+    }
+
+    private static long dumb7Fill(long pieceBoard, long myBoard, long enemyBoard, int direction, long exclusionMask) {
+        long result = pieceBoard;
+
+        long empty = ~(myBoard | enemyBoard | exclusionMask);
+        if (direction > 0) {
+            result |= (result << direction) & empty;
+            result |= (result << direction) & empty;
+            result |= (result << direction) & empty;
+            result |= (result << direction) & empty;
+            result |= (result << direction) & empty;
+            result |= (result << direction) & empty;
+            result |= (result << direction) & empty;
+            // Include the blocker
+            result |= (result << direction) & enemyBoard;
+        } else {
+            direction = -direction;
+            result |= (result >>> direction) & empty;
+            result |= (result >>> direction) & empty;
+            result |= (result >>> direction) & empty;
+            result |= (result >>> direction) & empty;
+            result |= (result >>> direction) & empty;
+            result |= (result >>> direction) & empty;
+            result |= (result >>> direction) & empty;
+            // Include the blocker
+            result |= (result >>> direction) & enemyBoard;
+        }
+
+        return result;
     }
 
     public static class Player {
