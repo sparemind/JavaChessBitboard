@@ -63,6 +63,33 @@ public class Piece {
     }
 
     /**
+     * Returns what type of piece this is.
+     *
+     * @return The type of piece this is.
+     */
+    public byte type() {
+        return (byte) (this.piece & TYPE_MASK);
+    }
+
+    /**
+     * Returns the 0-indexed file number of this piece.
+     *
+     * @return The 0-indexed file number of this piece.
+     */
+    public byte file() {
+        return (byte) (this.position & FILE_MASK);
+    }
+
+    /**
+     * Returns the 0-indexed rank number of this piece.
+     *
+     * @return The 0-indexed rank number of this piece.
+     */
+    public byte rank() {
+        return (byte) ((this.position & RANK_MASK) >>> 4);
+    }
+
+    /**
      * TODO
      *
      * @param piece

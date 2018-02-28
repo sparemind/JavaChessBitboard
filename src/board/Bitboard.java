@@ -1,11 +1,13 @@
 package board;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 import static board.Piece.*;
 import static board.Piece.Player.BLACK;
 import static board.Piece.Player.WHITE;
+import static board.Piece.Type.PAWN;
 
 /**
  * A bitboard representation of a chess position.
@@ -90,9 +92,10 @@ public class Bitboard {
     // Bit 3: Black can castle queenside
     private byte possibleCastling;
     // Square that can be moved to in an en passant capture
-    private byte enpassantSquare;
+    private byte enpassantPosition;
     // Whether it is white's turn or not
     private boolean whitesTurn;
+    private LinkedList<UndoMove> undoStack;
 
     public Bitboard(String fen) {
         this();
@@ -162,11 +165,11 @@ public class Bitboard {
 
         // En passant square
         if (enpassant.equals("-")) {
-            this.enpassantSquare = 0;
+            this.enpassantPosition = 0;
         } else {
             int file = enpassant.charAt(0) - 'a';
             int rank = enpassant.charAt(0) - '1';
-            this.enpassantSquare = position(file, rank);
+            this.enpassantPosition = position(file, rank);
         }
 
         // Number of half-moves made since the last capture or pawn move
@@ -184,8 +187,9 @@ public class Bitboard {
         this.halfmoveClock = 0;
         this.fullmoves = 1;
         this.possibleCastling = 0b1111;
-        this.enpassantSquare = 0;
+        this.enpassantPosition = 0;
         this.whitesTurn = true;
+        this.undoStack = new LinkedList<>();
     }
 
     /**
@@ -222,13 +226,13 @@ public class Bitboard {
         return (byte) ((rank << 4) | file);
     }
 
-    public static long square(byte position) {
+    public static int square(byte position) {
         int file = position & FILE_MASK;
         int rank = (position & RANK_MASK) >>> 4;
         return square(file, rank);
     }
 
-    public static long square(int file, int rank) {
+    public static int square(int file, int rank) {
         return (rank << 3) + file;
     }
 
@@ -279,12 +283,96 @@ public class Bitboard {
         this.halfmoveClock = 0;
         this.fullmoves = 1;
         this.possibleCastling = 0b1111;
-        this.enpassantSquare = 0;
+        this.enpassantPosition = 0;
         this.whitesTurn = true;
     }
 
+    public void applyMove(Move move) {
+        this.undoStack.addFirst(new UndoMove(this, move));
+
+        final byte color = (byte) (this.whitesTurn ? 0 : 1);
+        final long srcSquare = square(move.src.position);
+        final long destSquare = square(move.dest.position);
+        final byte srcPiece = move.src.type();
+        final byte destPiece = move.dest.type();
+
+        // Remove the piece from the source square
+        this.boards[color][srcPiece] &= ~(1L << srcSquare);
+
+        if (move.isPromotion()) {
+            // If the piece is a pawn being promoted, put the new piece
+            // on the destination square
+            final byte promotionPiece = move.promotionPiece();
+            this.boards[color][promotionPiece] |= (1L << destSquare);
+        } else {
+            // Otherwise, put the same piece back on the destination square
+            this.boards[color][srcPiece] |= (1L << destSquare);
+        }
+        // Capture enemy piece, if this move is a capture
+        if (move.isCapture()) {
+            this.boards[1 - color][destPiece] &= ~(1L << destSquare);
+        }
+
+        // If this is a castling move, everything can happen as normal. The only
+        // thing left to do now is move the rook into place.
+        if (move.isCastle()) {
+            int rank = this.whitesTurn ? 0 : 7;
+            int rookSrcFile;
+            int rookDestFile;
+            if (move.castleType() == 1) {
+                // King-side castle
+                rookSrcFile = File.H;
+                rookDestFile = File.F;
+                this.possibleCastling &= ~(0b01 << (this.whitesTurn ? 0 : 2));
+            } else {
+                // Queen-side castle
+                rookSrcFile = File.A;
+                rookDestFile = File.D;
+                this.possibleCastling &= ~(0b10 << (this.whitesTurn ? 0 : 2));
+            }
+            this.boards[color][Type.ROOK] &= ~(1L << square(rookSrcFile, rank));
+            this.boards[color][Type.ROOK] |= 1L << square(rookDestFile, rank);
+        }
+
+        // Update the half-move clock
+        this.halfmoveClock++;
+        if (srcPiece == PAWN || move.isCapture()) {
+            this.halfmoveClock = 0;
+        }
+
+        // Update en passant square
+        if (move.isDoublePush()) {
+            int epRank = move.src.rank() + (this.whitesTurn ? 1 : -1);
+            this.enpassantPosition = position(move.src.file(), epRank);
+        }
+
+        // Switch turns
+        this.whitesTurn = !this.whitesTurn;
+
+        // If black's turn just ended, increment the full move clock
+        if (this.whitesTurn) {
+            this.fullmoves++;
+        }
+    }
+
+    public void undoMove() {
+        UndoMove undoMove = this.undoStack.removeFirst();
+    }
+
     public List<Move> generateMoves() {
-        return null;
+        List<Move> pseudoMoves = generatePseudoMoves();
+        List<Move> moves = new ArrayList<>();
+
+        // TODO castling
+
+        for (Move move : pseudoMoves) {
+            applyMove(move);
+            if (true) {
+                moves.add(move);
+            }
+            undoMove();
+        }
+        return moves;
     }
 
     public List<Move> generatePseudoMoves() {
@@ -299,7 +387,7 @@ public class Bitboard {
             playerBitmap |= enemyBoards[i];
         }
         long blockers = playerBitmap | enemyBitmap;
-        final long enpassantBoard = (this.enpassantSquare == 0) ? 0 : 1L << (square(this.enpassantSquare));
+        final long enpassantBoard = (this.enpassantPosition == 0) ? 0 : 1L << (square(this.enpassantPosition));
 
         List<Move> moves = new ArrayList<>();
         // Process each piece type for this player
@@ -334,7 +422,11 @@ public class Bitboard {
                     }
 
                     Piece dest = new Piece((byte) (1 - color), (byte) destPiece, destPosition);
-                    moves.add(new Move(src, dest, (byte) Type.QUEEN, 0, destPiece != Type.EMPTY));
+                    byte promotionPiece = 0;
+                    if (piece == Type.PAWN && dest.rank() == 0 || dest.rank() == 7) {
+                        promotionPiece = Type.QUEEN;
+                    }
+                    moves.add(new Move(src, dest, promotionPiece, 0, destPiece != Type.EMPTY));
 
                     // Remove LS1B
                     pieceMovesBoard &= pieceMovesBoard - 1;
@@ -349,17 +441,44 @@ public class Bitboard {
         boolean canKingsideCastle = this.whitesTurn ? (this.possibleCastling & 0b0001) != 0 : (this.possibleCastling & 0b0100) != 0;
         boolean canQueensideCastle = this.whitesTurn ? (this.possibleCastling & 0b0010) != 0 : (this.possibleCastling & 0b1000) != 0;
         byte rank = (byte) (this.whitesTurn ? 0 : 7);
-        Piece src = new Piece(color, (byte) Type.KING, position(4, rank));
-        if (canKingsideCastle && ((1L << square(5, rank)) & blockers) == 0) {
-            Piece dest = new Piece(color, (byte) Type.EMPTY, position(6, rank));
+        Piece src = new Piece(color, (byte) Type.KING, position(File.E, rank));
+        if (canKingsideCastle && ((1L << square(File.F, rank)) & blockers) == 0) {
+            Piece dest = new Piece(color, (byte) Type.EMPTY, position(File.G, rank));
             moves.add(new Move(src, dest, 0, Move.KINGSIDE_CASTLE));
         }
-        if (canQueensideCastle && ((1L << square(3, rank)) & blockers) == 0) {
-            Piece dest = new Piece(color, (byte) Type.EMPTY, position(2, rank));
+        if (canQueensideCastle && ((1L << square(File.D, rank)) & blockers) == 0) {
+            Piece dest = new Piece(color, (byte) Type.EMPTY, position(File.C, rank));
             moves.add(new Move(src, dest, 0, Move.QUEENSIDE_CASTLE));
         }
 
         return moves;
+    }
+
+    private long generateMoveBitmap(int player) {
+        final byte color = (byte) (this.whitesTurn ? 0 : 1);
+        final long[] playerBoards = this.boards[color];
+        final long[] enemyBoards = this.boards[1 - color];
+
+        long playerBitmap = 0;
+        long enemyBitmap = 0;
+        for (int i = 0; i < NUM_PIECES; i++) {
+            playerBitmap |= playerBoards[i];
+            playerBitmap |= enemyBoards[i];
+        }
+        final long enpassantBoard = (this.enpassantPosition == 0) ? 0 : 1L << (square(this.enpassantPosition));
+
+        long result = 0;
+        for (int piece = 0; piece < playerBoards.length; piece++) {
+            // The bitmap of this piece
+            long pieceBoard = playerBoards[piece];
+
+            result |= Piece.getMoveBitmap(piece, pieceBoard, playerBitmap, enemyBitmap, enpassantBoard);
+        }
+        return result;
+    }
+
+    public byte getEnpassantPosition() {
+        return this.enpassantPosition;
     }
 
     @Override

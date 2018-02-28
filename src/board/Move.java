@@ -1,8 +1,5 @@
 package board;
 
-import static board.Piece.FILE_MASK;
-import static board.Piece.RANK_MASK;
-
 /**
  * TODO
  */
@@ -48,8 +45,29 @@ public class Move implements Comparable<Move> {
             // Queen-side castle
             b |= 0b0011;
         }
-        b |= (promotion - 1) & SPECIAL_MASK;
+        if (promotion != 0) {
+            // Set what piece this is promoted to
+            b |= (promotion - 1) & SPECIAL_MASK;
+        }
+        // Set if this is a double pawn push
+        if (src.type() == Piece.Type.PAWN) {
+            int srcRank = src.rank();
+            int destRank = dest.rank();
+            if (srcRank + 2 == destRank || srcRank - 2 == destRank) {
+                b = 0b0001;
+            }
+        }
+
         this.code = b;
+    }
+
+    /**
+     * Returns whether this move is a pawn double push.
+     *
+     * @return True iff this move is a pawn double push.
+     */
+    public boolean isDoublePush() {
+        return this.code == 0b0001;
     }
 
     /**
@@ -80,8 +98,7 @@ public class Move implements Comparable<Move> {
         if (!isCastle()) {
             return 0;
         }
-        byte c = (byte) (this.code & SPECIAL_MASK);
-        return (byte) (c & (c << 1));
+        return (byte) ((this.code == 0b0010) ? 1 : 2);
     }
 
     /**
@@ -99,11 +116,11 @@ public class Move implements Comparable<Move> {
      * @return The piece type of this move's promotion, or 0 if this isn't a
      * promotion move.
      */
-    public int promotionPiece() {
+    public byte promotionPiece() {
         if (!isPromotion()) {
             return 0;
         }
-        return (this.code & SPECIAL_MASK) + 1;
+        return (byte) ((this.code & SPECIAL_MASK) + 1);
     }
 
     @Override
@@ -113,10 +130,10 @@ public class Move implements Comparable<Move> {
 
     @Override
     public String toString() {
-        char srcFile = (char) ('a' + (this.src.position & FILE_MASK));
-        int srcRank = 1 + ((this.src.position & RANK_MASK) >>> 4);
-        char destFile = (char) ('a' + (this.dest.position & FILE_MASK));
-        int destRank = 1 + ((this.dest.position & RANK_MASK) >>> 4);
+        char srcFile = (char) ('a' + this.src.file());
+        int srcRank = 1 + this.src.rank();
+        char destFile = (char) ('a' + this.dest.file());
+        int destRank = 1 + this.dest.rank();
 
         return "" + srcFile + srcRank + destFile + destRank;
     }

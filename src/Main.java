@@ -13,6 +13,9 @@ public class Main {
         System.out.println(moves);
 
         System.out.println(b);
+        b.applyMove(moves.get(6));
+        System.out.println(b);
+
         // System.out.println();
         // System.out.println(Bitboard.bitmapToString(Piece.getMoveBitmap(KNIGHT, (1L << 39 | 1L << 45), 1L << 45, 0L, (byte) 0)));
         // System.out.println(Bitboard.bitmapToString(Piece.getMoveBitmap(BISHOP, 1L << 32, 0, 1L << 41, (byte) 0)));
