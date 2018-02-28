@@ -10,83 +10,126 @@ public class Piece {
     public static final int PLAYERS = 2;
 
     // Bit mask to get the lowest 7 bits of a byte
-    private static final byte TYPE_MASK = (byte) 0b01111111;
+    public static final byte TYPE_MASK = (byte) 0b01111111;
     // Bit mask to get the highest bit of a byte
-    private static final byte COLOR_MASK = (byte) 0b10000000;
-    // Bit mask to get the highest 4 bits of a byte
-    private static final byte RANK_MASK = (byte) 0b11110000;
+    public static final byte COLOR_MASK = (byte) 0b10000000;
     // Bit mask to get the lowest 4 bits of a byte
-    private static final byte FILE_MASK = 0b00001111;
+    public static final byte FILE_MASK = 0b00001111;
+    // Bit mask to get the highest 4 bits of a byte
+    public static final byte RANK_MASK = (byte) 0b11110000;
 
     // This piece's color and type.
     // Highest bit is the color, all others are the type.
-    protected byte piece;
+    public final byte piece;
     // This piece's position.
     // Lowest 4 bits are the file, highest 4 bits are the rank
-    protected byte position;
+    public final byte position;
+
+    /**
+     * Creates a new piece.
+     *
+     * @param color     The color of the piece.
+     * @param pieceType The Type of this piece.
+     * @param position  The position of this piece on the board. The lowest 4
+     *                  bits are the file, the highest 4 bits are the rank.
+     */
+    public Piece(byte color, byte pieceType, byte position) {
+        this((byte) ((color << 7) | pieceType), position);
+    }
+
+    /**
+     * Creates a new piece.
+     *
+     * @param piece    The combined color and type of this piece. The color is
+     *                 the highest bit and the other 7 are the Type.
+     * @param position The position of this piece on the board. The lowest 4
+     *                 bits are the file, the highest 4 bits are the rank.
+     */
+    public Piece(byte piece, byte position) {
+        this.piece = piece;
+        this.position = position;
+    }
 
     /**
      * TODO
      *
+     * @param piece
      * @param pieceBoard
      * @param myBoard
      * @param enemyBoard
+     * @param enpassantBoard
      * @return
      */
-    public static long getAttack(int piece, long pieceBoard, long myBoard, long enemyBoard, short enpassantSquare) {
+    public static long getMoveBitmap(int piece, long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard) {
         switch (piece) {
             case Type.PAWN:
-                return getPawnMoves(pieceBoard, myBoard, enemyBoard, enpassantSquare);
+                return getPawnBitmap(pieceBoard, myBoard, enemyBoard, enpassantBoard);
             case Type.KNIGHT:
-                return getKnightMoves(pieceBoard, myBoard);
+                return getKnightBitmap(pieceBoard, myBoard);
             case Type.BISHOP:
-                return getBishopMove(pieceBoard, myBoard, enemyBoard);
+                return getBishopBitmap(pieceBoard, myBoard, enemyBoard);
             case Type.ROOK:
-                return getRookMoves(pieceBoard, myBoard, enemyBoard);
+                return getRookBitmap(pieceBoard, myBoard, enemyBoard);
             case Type.QUEEN:
-                return getQueenMoves(pieceBoard, myBoard, enemyBoard);
+                return getQueenBitmap(pieceBoard, myBoard, enemyBoard);
             case Type.KING:
-                return getKingMoves(pieceBoard, myBoard, enemyBoard);
+                return getKingBitmap(pieceBoard, myBoard, enemyBoard);
             default:
                 return 0L;
         }
     }
 
-    private static long getPawnMoves(long pieceBoard, long myBoard, long enemyBoard, short enpassantSquare) {
+    /**
+     * @param pieceBoard
+     * @param myBoard
+     * @param enemyBoard
+     * @param enpassantBoard
+     * @return
+     */
+    private static long getPawnBitmap(long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard) {
         boolean isWhite = (pieceBoard & myBoard) != 0;
         int direction = isWhite ? 8 : -8;
-        long thirdRank = isWhite ? 2 : 5;
+        long thirdRank = isWhite ? Bitboard.getRank(2) : Bitboard.getRank(5);
+        // The leftmost and rightmost files from the perspective of this player
         long leftFile = isWhite ? Bitboard.getFile(File.A) : Bitboard.getFile(File.H);
         long rightFile = isWhite ? Bitboard.getFile(File.H) : Bitboard.getFile(File.A);
 
-        long result = 0;
-
-        // All open spaces that can be moved to by moving one square forward
+        // All open squares that can be moved to by moving one square forward
         long onePush = (pieceBoard << direction) & ~(myBoard | enemyBoard);
-        // All open spaces that can be moved to by moving two squares forward
+        // All open squares that can be moved to by moving two squares forward
         // from the starting rank
         long doublePush = ((onePush & thirdRank) << direction) & ~(myBoard | enemyBoard);
         // All squares that are being threatened
         long attack = 0;
-        attack |= (pieceBoard << (direction - 1)) & ~leftFile;
-        attack |= (pieceBoard << (direction + 1)) & ~rightFile;
+        attack |= (pieceBoard << (direction - 1)) & ~rightFile;
+        attack |= (pieceBoard << (direction + 1)) & ~leftFile;
+        // All squares that can be moved to as part of a capture
+        long capture = attack & (enemyBoard | enpassantBoard);
 
-
-        return result;
+        return onePush | doublePush | capture;
     }
 
-    private static long getKnightMoves(long pieceBoard, long myBoard) {
+    /**
+     * @param pieceBoard
+     * @param myBoard
+     * @return
+     */
+    private static long getKnightBitmap(long pieceBoard, long myBoard) {
         long result = 0;
 
+        // North-East-East and South-East-East
         result |= (pieceBoard << 10) & ~(Bitboard.getFile(File.A) | Bitboard.getFile(File.B));
         result |= (pieceBoard >>> 6) & ~(Bitboard.getFile(File.A) | Bitboard.getFile(File.B));
 
+        // North-North-East and South-South-East
         result |= (pieceBoard << 17) & ~(Bitboard.getFile(File.A));
         result |= (pieceBoard >>> 15) & ~(Bitboard.getFile(File.A));
 
+        // North-North-West and South-South-West
         result |= (pieceBoard << 15) & ~(Bitboard.getFile(File.H));
         result |= (pieceBoard >>> 17) & ~(Bitboard.getFile(File.H));
 
+        // North-West-West and South-West-West
         result |= (pieceBoard << 6) & ~(Bitboard.getFile(File.G) | Bitboard.getFile(File.H));
         result |= (pieceBoard >>> 10) & ~(Bitboard.getFile(File.G) | Bitboard.getFile(File.H));
 
@@ -96,19 +139,19 @@ public class Piece {
         return result;
     }
 
-    private static long getBishopMove(long pieceBoard, long myBoard, long enemyBoard) {
+    private static long getBishopBitmap(long pieceBoard, long myBoard, long enemyBoard) {
         return 0;
     }
 
-    private static long getRookMoves(long pieceBoard, long myBoard, long enemyBoard) {
+    private static long getRookBitmap(long pieceBoard, long myBoard, long enemyBoard) {
         return 0;
     }
 
-    private static long getQueenMoves(long pieceBoard, long myBoard, long enemyBoard) {
+    private static long getQueenBitmap(long pieceBoard, long myBoard, long enemyBoard) {
         return 0;
     }
 
-    private static long getKingMoves(long pieceBoard, long myBoard, long enemyBoard) {
+    private static long getKingBitmap(long pieceBoard, long myBoard, long enemyBoard) {
         return 0;
     }
 
@@ -124,5 +167,6 @@ public class Piece {
         public static final int ROOK = 3;
         public static final int QUEEN = 4;
         public static final int KING = 5;
+        public static final int EMPTY = -1;
     }
 }
