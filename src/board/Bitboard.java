@@ -308,7 +308,7 @@ public class Bitboard {
             // Otherwise, put the same piece back on the destination square
             this.boards[color][srcPiece] |= (1L << destSquare);
         }
-        // Capture enemy piece, if this move is a capture
+        // If this move is a capture, remove the enemy piece
         if (move.isCapture()) {
             this.boards[1 - color][destPiece] &= ~(1L << destSquare);
         }
@@ -356,7 +356,70 @@ public class Bitboard {
     }
 
     public void undoMove() {
+        if (this.undoStack.isEmpty()) {
+            return;
+        }
+
         UndoMove undoMove = this.undoStack.removeFirst();
+
+        // Switch turns
+        this.whitesTurn = !this.whitesTurn;
+
+        final byte color = (byte) (this.whitesTurn ? 0 : 1);
+        final long srcSquare = square(undoMove.move.src.position);
+        final long destSquare = square(undoMove.move.dest.position);
+        final byte srcPiece = undoMove.move.src.type();
+        final byte destPiece = undoMove.move.dest.type();
+
+        // Add the piece back to the source square
+        this.boards[color][srcPiece] |= 1L << srcSquare;
+
+        if (undoMove.move.isPromotion()) {
+            // If the piece was a pawn that was promoted, remove the promoted
+            // piece from the destination square
+            final byte promotionPiece = undoMove.move.promotionPiece();
+            this.boards[color][promotionPiece] &= ~(1L << destSquare);
+        } else {
+            // Otherwise, remove the moved piece from the destination square
+            this.boards[color][srcPiece] &= ~(1L << destSquare);
+        }
+        // If this move was a capture, put the enemy piece back
+        if (undoMove.move.isCapture()) {
+            this.boards[1 - color][destPiece] &= ~(1L << destSquare);
+        }
+
+        // If it was a castling move, everything can happen as normal. The only
+        // thing left to do now is move the rook back into place.
+        if (undoMove.move.isCastle()) {
+            int rank = this.whitesTurn ? 0 : 7;
+            int rookSrcFile;
+            int rookDestFile;
+
+            if (undoMove.move.castleType() == 1) {
+                // King-side castle
+                rookSrcFile = File.H;
+                rookDestFile = File.F;
+                this.possibleCastling |= 0b01 << (this.whitesTurn ? 0 : 2);
+            } else {
+                // Queen-side castle
+                rookSrcFile = File.A;
+                rookDestFile = File.D;
+                this.possibleCastling |= 0b10 << (this.whitesTurn ? 0 : 2);
+            }
+            this.boards[color][Type.ROOK] &= ~(1L << square(rookDestFile, rank));
+            this.boards[color][Type.ROOK] |= 1L << square(rookSrcFile, rank);
+        }
+
+        // Update the half-move clock
+        this.halfmoveClock = undoMove.halfmoveClock;
+
+        // Update en passant square
+        this.enpassantPosition = undoMove.enpassantPosition;
+
+        // If it was white's turn, decrement the full move clock
+        if (!this.whitesTurn) {
+            this.fullmoves--;
+        }
     }
 
     public List<Move> generateMoves() {
@@ -479,6 +542,10 @@ public class Bitboard {
 
     public byte getEnpassantPosition() {
         return this.enpassantPosition;
+    }
+
+    public byte getHalfmoveClock() {
+        return this.halfmoveClock;
     }
 
     @Override

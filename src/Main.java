@@ -13,7 +13,9 @@ public class Main {
         System.out.println(moves);
 
         System.out.println(b);
-        b.applyMove(moves.get(6));
+        b.applyMove(moves.get(5));
+        b.undoMove();
+        // b.applyMove(moves.get(5));
         System.out.println(b);
 
         // System.out.println();
