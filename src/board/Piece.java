@@ -89,6 +89,10 @@ public class Piece {
         return (byte) ((this.position & RANK_MASK) >>> 4);
     }
 
+    public static long getMoveBitmap(boolean isWhite, int piece, long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard) {
+        return getMoveBitmap(isWhite, piece, pieceBoard, myBoard, enemyBoard, enpassantBoard, false);
+    }
+
     /**
      * TODO
      *
@@ -99,10 +103,10 @@ public class Piece {
      * @param enpassantBoard
      * @return
      */
-    public static long getMoveBitmap(boolean isWhite, int piece, long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard) {
+    public static long getMoveBitmap(boolean isWhite, int piece, long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard, boolean allAttacks) {
         switch (piece) {
             case Type.PAWN:
-                return getPawnBitmap(isWhite, pieceBoard, myBoard, enemyBoard, enpassantBoard);
+                return getPawnBitmap(isWhite, pieceBoard, myBoard, enemyBoard, enpassantBoard, allAttacks);
             case Type.KNIGHT:
                 return getKnightBitmap(pieceBoard, myBoard);
             case Type.BISHOP:
@@ -119,13 +123,15 @@ public class Piece {
     }
 
     /**
+     * @param isWhite
      * @param pieceBoard
      * @param myBoard
      * @param enemyBoard
      * @param enpassantBoard
+     * @param allAttacks
      * @return
      */
-    private static long getPawnBitmap(boolean isWhite, long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard) {
+    private static long getPawnBitmap(boolean isWhite, long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard, boolean allAttacks) {
         long thirdRank = isWhite ? Bitboard.getRank(2) : Bitboard.getRank(5);
         // The leftmost and rightmost files from the perspective of this player
         long leftFile = isWhite ? Bitboard.getFile(File.A) : Bitboard.getFile(File.H);
@@ -156,7 +162,12 @@ public class Piece {
         }
 
         // All squares that can be moved to as part of a capture
-        long capture = attack & (enemyBoard | enpassantBoard);
+        long capture;
+        if (allAttacks) {
+            capture = attack;
+        } else {
+            capture = attack & (enemyBoard | enpassantBoard);
+        }
 
         return onePush | doublePush | capture;
     }
@@ -282,6 +293,6 @@ public class Piece {
         public static final int ROOK = 3;
         public static final int QUEEN = 4;
         public static final int KING = 5;
-        public static final int EMPTY = -1;
+        public static final int EMPTY = 6;
     }
 }

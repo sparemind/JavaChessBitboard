@@ -58,6 +58,10 @@ public class Move implements Comparable<Move> {
                 b = 0b0001;
             }
         }
+        // Set if this is an en passant capture
+        if (src.type() == Piece.Type.PAWN && dest.type() == Piece.Type.EMPTY && src.file() != dest.file()) {
+            b = 0b0101;
+        }
 
         this.code = b;
     }
@@ -69,6 +73,15 @@ public class Move implements Comparable<Move> {
      */
     public boolean isDoublePush() {
         return this.code == 0b0001;
+    }
+
+    /**
+     * Returns whether this move is an en passant capture.
+     *
+     * @return True iff this move is an en passant capture.
+     */
+    public boolean isEnpassant() {
+        return this.code == 0b0101;
     }
 
     /**
@@ -132,7 +145,11 @@ public class Move implements Comparable<Move> {
 
     @Override
     public String toString() {
-        return this.src.toString() + this.dest.toString();
+        String promotion = "";
+        if (isPromotion()) {
+            promotion = String.valueOf(Bitboard.PIECES.charAt(promotionPiece()));
+        }
+        return this.src.toString() + this.dest.toString() + promotion;
         // char srcFile = (char) ('a' + this.src.file());
         // int srcRank = 1 + this.src.rank();
         // char destFile = (char) ('a' + this.dest.file());

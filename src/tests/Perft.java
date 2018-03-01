@@ -14,10 +14,12 @@ import java.util.Stack;
  */
 public class Perft {
     public static void main(String[] args) {
-        Bitboard board = new Bitboard("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-        // board.initStartingBoard();
+        // Bitboard board = new Bitboard("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        Bitboard board = new Bitboard("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0");
+        board.initStartingBoard();
 
-        // System.out.println(perft(board, 5));
+        // System.out.println(perft(board, 4));
+        // System.out.println(board);
 
         long start = System.currentTimeMillis();
         for (int i = 0; i < 6; i++) {

@@ -303,7 +303,7 @@ public class Bitboard {
             this.enpassantPosition = 0;
         } else {
             int file = enpassant.charAt(0) - 'a';
-            int rank = enpassant.charAt(0) - '1';
+            int rank = enpassant.charAt(1) - '1';
             this.enpassantPosition = position(file, rank);
         }
 
@@ -349,8 +349,21 @@ public class Bitboard {
             this.boards[color][srcPiece] |= (1L << destSquare);
         }
         // If this move is a capture, remove the enemy piece
-        if (move.isCapture()) {
+        if (move.isCapture() && !move.isEnpassant()) {
             this.boards[1 - color][destPiece] &= ~(1L << destSquare);
+
+            if (destPiece == Type.ROOK) {
+                byte rookFile = move.dest.file();
+                byte mask = 0;
+                if (rookFile == File.H) {
+                    mask = 0b01;
+                } else if (rookFile == File.A) {
+                    mask = 0b10;
+                }
+                // Change the castling options of the OTHER player
+                mask <<= this.whitesTurn ? 2 : 0;
+                this.possibleCastling &= ~mask;
+            }
         }
         // If the king moves, no castling is possible
         if (srcPiece == Type.KING) {
@@ -363,14 +376,29 @@ public class Bitboard {
         // If a rook moves, castling on that side is no longer possible
         if (srcPiece == Type.ROOK) {
             byte rookFile = move.src.file();
-            byte mask;
+            byte mask = 0;
             if (rookFile == File.H) {
                 mask = 0b01;
-            } else {
+            } else if (rookFile == File.A) {
                 mask = 0b10;
             }
             mask <<= this.whitesTurn ? 0 : 2;
             this.possibleCastling &= ~mask;
+        }
+        if (move.toString().equals("b4a3")) {
+            // System.out.println(move.code);
+            // System.out.println(Bitboard.bitmapToString(this.boards[1 - color][0]));
+        }
+        // If an en passant move, TODO
+        if (move.isEnpassant()) {
+            // TODO: Different files doesn't automatically mean en passant
+            // TODO: also need dest to be empty -- or: check if dest==enpassantPosition ???
+
+            if (this.whitesTurn) {
+                this.boards[1 - color][Type.PAWN] &= ~((1L << destSquare) >>> SIZE);
+            } else {
+                this.boards[1 - color][Type.PAWN] &= ~((1L << destSquare) << SIZE);
+            }
         }
 
         // If this is a castling move, everything can happen as normal. The only
@@ -446,8 +474,21 @@ public class Bitboard {
             this.boards[color][srcPiece] &= ~(1L << destSquare);
         }
         // If this move was a capture, put the enemy piece back
-        if (undoMove.move.isCapture()) {
+        if (undoMove.move.isCapture() && !undoMove.move.isEnpassant()) {
             this.boards[1 - color][destPiece] |= 1L << destSquare;
+
+            if (destPiece == Type.ROOK) {
+                byte rookFile = undoMove.move.dest.file();
+                byte mask = 0;
+                if (rookFile == File.H) {
+                    mask = 0b01;
+                } else if (rookFile == File.A) {
+                    mask = 0b10;
+                }
+                // Change the castling options of the OTHER player
+                mask <<= this.whitesTurn ? 2 : 0;
+                this.possibleCastling |= mask;
+            }
         }
 
         // If it was a castling move, everything can happen as normal. The only
@@ -470,6 +511,16 @@ public class Bitboard {
             }
             this.boards[color][Type.ROOK] &= ~(1L << square(rookDestFile, rank));
             this.boards[color][Type.ROOK] |= 1L << square(rookSrcFile, rank);
+        }
+        // If an en passant move, TODO
+        if (undoMove.move.isEnpassant()) {
+            if (this.whitesTurn) {
+                this.boards[1 - color][Type.PAWN] |= ((1L << destSquare) >>> SIZE);
+                // this.boards[1 - color][Type.PAWN] |= ((1L << (destSquare - SIZE)));
+            } else {
+                this.boards[1 - color][Type.PAWN] |= ((1L << destSquare) << SIZE);
+                // this.boards[1 - color][Type.PAWN] |= ((1L << (destSquare + SIZE)));
+            }
         }
 
         // Update castling options
@@ -583,10 +634,39 @@ public class Bitboard {
 
                     Piece dest = new Piece((byte) (1 - color), (byte) destPiece, destPosition);
                     byte promotionPiece = 0;
+                    boolean isCapture = destPiece != Type.EMPTY;
                     if (piece == Type.PAWN && (dest.rank() == 0 || dest.rank() == 7)) {
-                        promotionPiece = Type.QUEEN;
+                        // promotionPiece = Type.QUEEN;
+
+                        moves.add(new Move(src, dest, (byte) Type.QUEEN, 0, isCapture));
+                        moves.add(new Move(src, dest, (byte) Type.ROOK, 0, isCapture));
+                        moves.add(new Move(src, dest, (byte) Type.KNIGHT, 0, isCapture));
+                        moves.add(new Move(src, dest, (byte) Type.BISHOP, 0, isCapture));
+                    } else {
+                        moves.add(new Move(src, dest, promotionPiece, 0, isCapture));
                     }
-                    moves.add(new Move(src, dest, promotionPiece, 0, destPiece != Type.EMPTY));
+
+                    // Move asdf = moves.get(moves.size() - 1);
+                    // if (asdf.isEnpassant()) {
+                    //     System.out.println(asdf);
+                    //     System.out.println(this);
+                    // }
+
+                    // // If this is an enpassant move, set the captured piece to
+                    // // be a pawn
+                    // // if (piece == Type.PAWN && (position(nextDestSquare) & FILE_MASK) != src.file()) {
+                    // //     destPiece = Type.PAWN;
+                    // // }
+                    // Piece dest = new Piece((byte) (1 - color), (byte) destPiece, destPosition);
+                    // boolean isCapture = destPiece != Type.EMPTY;
+                    // // if (piece == Type.PAWN && (dest.rank() == 0 || dest.rank() == 7)) {
+                    // //     moves.add(new Move(src, dest, (byte) Type.QUEEN, 0, isCapture));
+                    // //     moves.add(new Move(src, dest, (byte) Type.ROOK, 0, isCapture));
+                    // //     moves.add(new Move(src, dest, (byte) Type.KNIGHT, 0, isCapture));
+                    // //     moves.add(new Move(src, dest, (byte) Type.BISHOP, 0, isCapture));
+                    // // } else {
+                    // moves.add(new Move(src, dest, (byte) 0, 0, isCapture));
+                    // // }
 
                     // Remove LS1B
                     pieceMovesBoard &= pieceMovesBoard - 1;
@@ -633,7 +713,7 @@ public class Bitboard {
             // The bitmap of this piece
             long pieceBoard = playerBoards[piece];
 
-            result |= Piece.getMoveBitmap(player == 0, piece, pieceBoard, playerBitmap, enemyBitmap, enpassantBoard);
+            result |= Piece.getMoveBitmap(player == 0, piece, pieceBoard, playerBitmap, enemyBitmap, enpassantBoard, true);
         }
         return result;
     }
