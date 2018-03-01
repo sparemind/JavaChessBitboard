@@ -86,7 +86,8 @@ public class Move implements Comparable<Move> {
      * @return True iff this move is a castling move.
      */
     public boolean isCastle() {
-        return !isCapture() && !isPromotion() && (this.code & SPECIAL_MASK) != 0;
+        byte special = (byte) (this.code & SPECIAL_MASK);
+        return !isCapture() && !isPromotion() && (special == 0b10 || special == 0b11);
     }
 
     /**
@@ -131,11 +132,12 @@ public class Move implements Comparable<Move> {
 
     @Override
     public String toString() {
-        char srcFile = (char) ('a' + this.src.file());
-        int srcRank = 1 + this.src.rank();
-        char destFile = (char) ('a' + this.dest.file());
-        int destRank = 1 + this.dest.rank();
-
-        return "" + srcFile + srcRank + destFile + destRank;
+        return this.src.toString() + this.dest.toString();
+        // char srcFile = (char) ('a' + this.src.file());
+        // int srcRank = 1 + this.src.rank();
+        // char destFile = (char) ('a' + this.dest.file());
+        // int destRank = 1 + this.dest.rank();
+        //
+        // return "" + srcFile + srcRank + destFile + destRank;
     }
 }

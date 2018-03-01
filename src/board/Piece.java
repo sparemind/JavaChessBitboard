@@ -99,10 +99,10 @@ public class Piece {
      * @param enpassantBoard
      * @return
      */
-    public static long getMoveBitmap(int piece, long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard) {
+    public static long getMoveBitmap(boolean isWhite, int piece, long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard) {
         switch (piece) {
             case Type.PAWN:
-                return getPawnBitmap(pieceBoard, myBoard, enemyBoard, enpassantBoard);
+                return getPawnBitmap(isWhite, pieceBoard, myBoard, enemyBoard, enpassantBoard);
             case Type.KNIGHT:
                 return getKnightBitmap(pieceBoard, myBoard);
             case Type.BISHOP:
@@ -112,7 +112,7 @@ public class Piece {
             case Type.QUEEN:
                 return getQueenBitmap(pieceBoard, myBoard, enemyBoard);
             case Type.KING:
-                return getKingBitmap(pieceBoard, myBoard, enemyBoard);
+                return getKingBitmap(pieceBoard, myBoard);
             default:
                 return 0L;
         }
@@ -125,23 +125,36 @@ public class Piece {
      * @param enpassantBoard
      * @return
      */
-    private static long getPawnBitmap(long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard) {
-        boolean isWhite = (pieceBoard & myBoard) != 0;
-        int direction = isWhite ? 8 : -8;
+    private static long getPawnBitmap(boolean isWhite, long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard) {
         long thirdRank = isWhite ? Bitboard.getRank(2) : Bitboard.getRank(5);
         // The leftmost and rightmost files from the perspective of this player
         long leftFile = isWhite ? Bitboard.getFile(File.A) : Bitboard.getFile(File.H);
         long rightFile = isWhite ? Bitboard.getFile(File.H) : Bitboard.getFile(File.A);
 
-        // All open squares that can be moved to by moving one square forward
-        long onePush = (pieceBoard << direction) & ~(myBoard | enemyBoard);
-        // All open squares that can be moved to by moving two squares forward
-        // from the starting rank
-        long doublePush = ((onePush & thirdRank) << direction) & ~(myBoard | enemyBoard);
-        // All squares that are being threatened
+        long onePush;
+        long doublePush;
         long attack = 0;
-        attack |= (pieceBoard << (direction - 1)) & ~rightFile;
-        attack |= (pieceBoard << (direction + 1)) & ~leftFile;
+
+        if (isWhite) {
+            // All open squares that can be moved to by moving one square forward
+            onePush = (pieceBoard << 8) & ~(myBoard | enemyBoard);
+            // All open squares that can be moved to by moving two squares forward
+            // from the starting rank
+            doublePush = ((onePush & thirdRank) << 8) & ~(myBoard | enemyBoard);
+            // All squares that are being threatened
+            attack |= (pieceBoard << (8 - 1)) & ~rightFile;
+            attack |= (pieceBoard << (8 + 1)) & ~leftFile;
+        } else {
+            // All open squares that can be moved to by moving one square forward
+            onePush = (pieceBoard >>> 8) & ~(myBoard | enemyBoard);
+            // All open squares that can be moved to by moving two squares forward
+            // from the starting rank
+            doublePush = ((onePush & thirdRank) >>> 8) & ~(myBoard | enemyBoard);
+            // All squares that are being threatened
+            attack |= (pieceBoard >>> (8 - 1)) & ~rightFile;
+            attack |= (pieceBoard >>> (8 + 1)) & ~leftFile;
+        }
+
         // All squares that can be moved to as part of a capture
         long capture = attack & (enemyBoard | enpassantBoard);
 
@@ -204,7 +217,7 @@ public class Piece {
         return getRookBitmap(pieceBoard, myBoard, enemyBoard) | getBishopBitmap(pieceBoard, myBoard, enemyBoard);
     }
 
-    private static long getKingBitmap(long pieceBoard, long myBoard, long enemyBoard) {
+    private static long getKingBitmap(long pieceBoard, long myBoard) {
         long result = 0;
 
         result |= (pieceBoard << NW) & ~(myBoard | Bitboard.getFile(File.H));
@@ -233,7 +246,7 @@ public class Piece {
             result |= (result << direction) & empty;
             result |= (result << direction) & empty;
             // Include the blocker
-            result |= (result << direction) & enemyBoard;
+            result |= (result << direction) & ~exclusionMask & enemyBoard;
         } else {
             direction = -direction;
             result |= (result >>> direction) & empty;
@@ -244,10 +257,17 @@ public class Piece {
             result |= (result >>> direction) & empty;
             result |= (result >>> direction) & empty;
             // Include the blocker
-            result |= (result >>> direction) & enemyBoard;
+            result |= (result >>> direction) & ~exclusionMask & enemyBoard;
         }
 
         return result & ~pieceBoard;
+    }
+
+    @Override
+    public String toString() {
+        char file = (char) ('a' + file());
+        int rank = 1 + rank();
+        return "" + file + rank;
     }
 
     public static class Player {

@@ -3,6 +3,7 @@ package board;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Random;
 
 import static board.Piece.*;
 import static board.Piece.Player.BLACK;
@@ -73,6 +74,25 @@ public class Bitboard {
         26, 49, 45, 36, 56,  7, 48, 35,
         6,  34, 33, -1
     };
+
+    // Masks for the space between the king and rook when determining if
+    // castling is possible. From white's perspective.
+    private static final long KINGSIDE_CASTLE_MASK  = 0b01100000L;
+    private static final long QUEENSIDE_CASTLE_MASK = 0b00001110L;
+
+    // Random bitstrings used for zobrist hashing
+    private static final long[] ZOBRIST = new long[781];
+    // Offsets determining where in ZOBRIST the zobrist bitstrings for each of
+    // the hash components starts
+    public static final int CASTLE_OFFSET = 768;
+    public static final int ENPASSANT_OFFSET = 772;
+    public static final int TURN_OFFSET = 780;
+    static {
+        Random rand = new Random(0);
+        for(int i = 0; i < ZOBRIST.length; i++) {
+            ZOBRIST[i] = rand.nextLong();
+        }
+    }
     // @formatter:on
 
     ///////////////////////////////////////////////////////////////////////////
@@ -95,88 +115,14 @@ public class Bitboard {
     private byte enpassantPosition;
     // Whether it is white's turn or not
     private boolean whitesTurn;
+    // Moves that have been applied to this board, with the most recent on top
     private LinkedList<UndoMove> undoStack;
+    // The zobrist hash of this board
+    private long signature;
 
     public Bitboard(String fen) {
         this();
         init(fen);
-    }
-
-    /**
-     * @param fen
-     */
-    private void init(String fen) {
-        for (int player = 0; player < this.boards.length; player++) {
-            for (int piece = 0; piece < this.boards.length; piece++) {
-                this.boards[player][piece] = 0L;
-            }
-        }
-        this.possibleCastling = 0;
-
-        String[] fenParts = fen.split(" ");
-        String pieces = fenParts[0];
-        String turn = fenParts[1];
-        String castling = fenParts[2];
-        String enpassant = fenParts[3];
-        String halfmoves = fenParts[4];
-        String fullmoves = fenParts[5];
-
-        // Board layout
-        int square = SQUARES - SIZE; // A8
-        for (char c : pieces.toCharArray()) {
-            switch (c) {
-                case '8':
-                case '7':
-                case '6':
-                case '5':
-                case '4':
-                case '3':
-                case '2':
-                case '1':
-                    square += (c - '0');
-                    break;
-                case '/':
-                    square -= SIZE * 2;
-                    break;
-                default:
-                    int pieceType = PIECES.indexOf(c);
-                    this.boards[pieceType < NUM_PIECES ? 0 : 1][pieceType % NUM_PIECES] |= 1L << square;
-                    square++;
-                    break;
-            }
-        }
-
-        // Current player to move
-        this.whitesTurn = turn.equals("w");
-
-        // Available castling options
-        if (castling.contains("K")) {
-            this.possibleCastling |= 0b0001;
-        }
-        if (castling.contains("Q")) {
-            this.possibleCastling |= 0b0010;
-        }
-        if (castling.contains("k")) {
-            this.possibleCastling |= 0b0100;
-        }
-        if (castling.contains("q")) {
-            this.possibleCastling |= 0b1000;
-        }
-
-        // En passant square
-        if (enpassant.equals("-")) {
-            this.enpassantPosition = 0;
-        } else {
-            int file = enpassant.charAt(0) - 'a';
-            int rank = enpassant.charAt(0) - '1';
-            this.enpassantPosition = position(file, rank);
-        }
-
-        // Number of half-moves made since the last capture or pawn move
-        this.halfmoveClock = (byte) Integer.parseInt(halfmoves);
-
-        // The number of half-moves made in the game so far
-        this.fullmoves = (short) (Integer.parseInt(fullmoves));
     }
 
     /**
@@ -190,6 +136,23 @@ public class Bitboard {
         this.enpassantPosition = 0;
         this.whitesTurn = true;
         this.undoStack = new LinkedList<>();
+        this.signature = 0;
+    }
+
+    public Bitboard copy() {
+        Bitboard copy = new Bitboard();
+
+        System.arraycopy(this.boards[WHITE], 0, copy.boards[WHITE], 0, this.boards[WHITE].length);
+        System.arraycopy(this.boards[BLACK], 0, copy.boards[BLACK], 0, this.boards[BLACK].length);
+        copy.halfmoveClock = this.halfmoveClock;
+        copy.fullmoves = this.fullmoves;
+        copy.possibleCastling = this.possibleCastling;
+        copy.enpassantPosition = this.enpassantPosition;
+        copy.whitesTurn = this.whitesTurn;
+        copy.undoStack = new LinkedList<>(this.undoStack);
+        copy.signature = this.signature;
+
+        return copy;
     }
 
     /**
@@ -275,6 +238,83 @@ public class Bitboard {
     }
 
     /**
+     * @param fen
+     */
+    private void init(String fen) {
+        for (int player = 0; player < this.boards.length; player++) {
+            for (int piece = 0; piece < this.boards.length; piece++) {
+                this.boards[player][piece] = 0L;
+            }
+        }
+        this.possibleCastling = 0;
+
+        String[] fenParts = fen.split(" ");
+        String pieces = fenParts[0];
+        String turn = fenParts[1];
+        String castling = fenParts[2];
+        String enpassant = fenParts[3];
+        String halfmoves = fenParts[4];
+        String fullmoves = fenParts[5];
+
+        // Board layout
+        int square = SQUARES - SIZE; // A8
+        for (char c : pieces.toCharArray()) {
+            switch (c) {
+                case '8':
+                case '7':
+                case '6':
+                case '5':
+                case '4':
+                case '3':
+                case '2':
+                case '1':
+                    square += (c - '0');
+                    break;
+                case '/':
+                    square -= SIZE * 2;
+                    break;
+                default:
+                    int pieceType = PIECES.indexOf(c);
+                    this.boards[pieceType < NUM_PIECES ? 0 : 1][pieceType % NUM_PIECES] |= 1L << square;
+                    square++;
+                    break;
+            }
+        }
+
+        // Current player to move
+        this.whitesTurn = turn.equals("w");
+
+        // Available castling options
+        if (castling.contains("K")) {
+            this.possibleCastling |= 0b0001;
+        }
+        if (castling.contains("Q")) {
+            this.possibleCastling |= 0b0010;
+        }
+        if (castling.contains("k")) {
+            this.possibleCastling |= 0b0100;
+        }
+        if (castling.contains("q")) {
+            this.possibleCastling |= 0b1000;
+        }
+
+        // En passant square
+        if (enpassant.equals("-")) {
+            this.enpassantPosition = 0;
+        } else {
+            int file = enpassant.charAt(0) - 'a';
+            int rank = enpassant.charAt(0) - '1';
+            this.enpassantPosition = position(file, rank);
+        }
+
+        // Number of half-moves made since the last capture or pawn move
+        this.halfmoveClock = (byte) Integer.parseInt(halfmoves);
+
+        // The number of half-moves made in the game so far
+        this.fullmoves = (short) (Integer.parseInt(fullmoves));
+    }
+
+    /**
      * Initializes this bitboard to be the starting position of a game.
      */
     public void initStartingBoard() {
@@ -312,7 +352,6 @@ public class Bitboard {
         if (move.isCapture()) {
             this.boards[1 - color][destPiece] &= ~(1L << destSquare);
         }
-
         // If the king moves, no castling is possible
         if (srcPiece == Type.KING) {
             if (this.whitesTurn) {
@@ -365,6 +404,8 @@ public class Bitboard {
         if (move.isDoublePush()) {
             int epRank = move.src.rank() + (this.whitesTurn ? 1 : -1);
             this.enpassantPosition = position(move.src.file(), epRank);
+        } else {
+            this.enpassantPosition = 0;
         }
 
         // Switch turns
@@ -447,8 +488,8 @@ public class Bitboard {
     }
 
     public List<Move> generateMoves() {
-        List<Move> pseudoMoves = generatePseudoMoves();
-        List<Move> moves = new ArrayList<>();
+        final List<Move> pseudoMoves = generatePseudoMoves();
+        final List<Move> moves = new ArrayList<>();
 
         final byte color = (byte) (this.whitesTurn ? 0 : 1);
         for (Move move : pseudoMoves) {
@@ -484,6 +525,7 @@ public class Bitboard {
             }
             undoMove();
         }
+
         return moves;
     }
 
@@ -520,7 +562,7 @@ public class Bitboard {
                 byte position = position(ls1bSquare(nextPieceSquare));
 
                 // Get a bitmap of all locations this piece can move to
-                long pieceMovesBoard = Piece.getMoveBitmap(piece, nextPieceSquare, playerBitmap, enemyBitmap, enpassantBoard);
+                long pieceMovesBoard = Piece.getMoveBitmap(this.whitesTurn, piece, nextPieceSquare, playerBitmap, enemyBitmap, enpassantBoard);
 
                 // Create a move for each destination
                 Piece src = new Piece(color, (byte) piece, position);
@@ -559,12 +601,14 @@ public class Bitboard {
         boolean canKingsideCastle = this.whitesTurn ? (this.possibleCastling & 0b0001) != 0 : (this.possibleCastling & 0b0100) != 0;
         boolean canQueensideCastle = this.whitesTurn ? (this.possibleCastling & 0b0010) != 0 : (this.possibleCastling & 0b1000) != 0;
         byte rank = (byte) (this.whitesTurn ? 0 : 7);
+        long kingsideMask = KINGSIDE_CASTLE_MASK << (this.whitesTurn ? 0 : 7 * SIZE);
+        long queensideMask = QUEENSIDE_CASTLE_MASK << (this.whitesTurn ? 0 : 7 * SIZE);
         Piece src = new Piece(color, (byte) Type.KING, position(File.E, rank));
-        if (canKingsideCastle && ((1L << square(File.F, rank)) & blockers) == 0) {
+        if (canKingsideCastle && (kingsideMask & blockers) == 0) {
             Piece dest = new Piece(color, (byte) Type.EMPTY, position(File.G, rank));
             moves.add(new Move(src, dest, 0, Move.KINGSIDE_CASTLE));
         }
-        if (canQueensideCastle && ((1L << square(File.D, rank)) & blockers) == 0) {
+        if (canQueensideCastle && (queensideMask & blockers) == 0) {
             Piece dest = new Piece(color, (byte) Type.EMPTY, position(File.C, rank));
             moves.add(new Move(src, dest, 0, Move.QUEENSIDE_CASTLE));
         }
@@ -589,7 +633,7 @@ public class Bitboard {
             // The bitmap of this piece
             long pieceBoard = playerBoards[piece];
 
-            result |= Piece.getMoveBitmap(piece, pieceBoard, playerBitmap, enemyBitmap, enpassantBoard);
+            result |= Piece.getMoveBitmap(player == 0, piece, pieceBoard, playerBitmap, enemyBitmap, enpassantBoard);
         }
         return result;
     }
