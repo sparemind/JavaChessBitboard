@@ -739,7 +739,7 @@ public class Bitboard {
                 final byte position = position(ls1bSquare(nextPieceSquare));
 
                 // Get a bitmap of all locations this piece can move to
-                long pieceMovesBoard = Piece.getMoveBitmap(this.whitesTurn, piece, nextPieceSquare, playerBitmap, enemyBitmap, enpassantBoard);
+                long pieceMovesBoard = Piece.getMoveBitmap(true, this.whitesTurn, piece, nextPieceSquare, playerBitmap, enemyBitmap, enpassantBoard);
 
                 // Create a move for each destination
                 final Piece src = new Piece((byte) piece, position);
@@ -826,7 +826,7 @@ public class Bitboard {
             // The bitmap of this piece
             long pieceBoard = playerBoards[piece];
 
-            result |= Piece.getMoveBitmap(player == 0, piece, pieceBoard, playerBitmap, enemyBitmap, enpassantBoard, true);
+            result |= Piece.getMoveBitmap(false, player == 0, piece, pieceBoard, playerBitmap, enemyBitmap, enpassantBoard, true);
         }
         return result;
     }

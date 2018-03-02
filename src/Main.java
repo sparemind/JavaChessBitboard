@@ -1,5 +1,6 @@
 import board.Bitboard;
 import board.Move;
+import board.Piece;
 
 import java.util.List;
 
@@ -14,6 +15,13 @@ public class Main {
         System.out.println(b);
 
         System.out.println(b.fen());
+
+
+        long l = Piece.getMoveBitmap(false, true, Piece.Type.KNIGHT, 1, 1, 1, 0);
+        System.out.println(Bitboard.bitmapToString(l));
+        System.out.println(Long.toHexString(l));
+
+
         // b.applyMove(moves.get(16));
         // System.out.println(b);
         // moves = b.generateMoves();

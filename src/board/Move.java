@@ -4,6 +4,33 @@ package board;
  * TODO
  */
 public class Move implements Comparable<Move> {
+    // 0-1: Special (1 = promotion, 2 = en passant, 3 = castling)
+    // 2-7: Destination square
+    // 8-13: Origin square
+    // 14-15: Promotion piece
+
+    // // @ formatter:off
+    // private static final int TYPE_MASK      = 0b0000000000000011;
+    // private static final int DEST_MASK      = 0b0000000011111100;
+    // private static final int SRC_MASK       = 0b0011111100000000;
+    // private static final int PROMOTION_MASK = 0b1100000000000000;
+    //
+    // private static final int DEST_SHIFT = 2;
+    // private static final int SRC_SHIFT = 8;
+    // private static final int PROMOTION_SHIFT = 14;
+    // // @ formatter:on
+    //
+    // public static char instance(byte type, byte src, byte dest, byte promotionPiece) {
+    //     char move = 0;
+    //
+    //     move |= type;
+    //     move |= dest << DEST_SHIFT;
+    //     move |= src << SRC_SHIFT;
+    //     move |= promotionPiece << PROMOTION_SHIFT;
+    //
+    //     return move;
+    // }
+
     public static final byte KINGSIDE_CASTLE = 1;
     public static final byte QUEENSIDE_CASTLE = 2;
 

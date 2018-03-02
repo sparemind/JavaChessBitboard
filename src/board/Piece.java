@@ -90,8 +90,8 @@ public class Piece {
         return (byte) ((this.position & RANK_MASK) >>> 4);
     }
 
-    public static long getMoveBitmap(boolean isWhite, int piece, long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard) {
-        return getMoveBitmap(isWhite, piece, pieceBoard, myBoard, enemyBoard, enpassantBoard, false);
+    public static long getMoveBitmap(boolean singlePiece, boolean isWhite, int piece, long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard) {
+        return getMoveBitmap(singlePiece, isWhite, piece, pieceBoard, myBoard, enemyBoard, enpassantBoard, false);
     }
 
     /**
@@ -104,12 +104,16 @@ public class Piece {
      * @param enpassantBoard
      * @return
      */
-    public static long getMoveBitmap(boolean isWhite, int piece, long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard, boolean allAttacks) {
+    public static long getMoveBitmap(boolean singlePiece, boolean isWhite, int piece, long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard, boolean allAttacks) {
         switch (piece) {
             case Type.PAWN:
                 return getPawnBitmap(isWhite, pieceBoard, myBoard, enemyBoard, enpassantBoard, allAttacks);
             case Type.KNIGHT:
-                return getKnightBitmap(pieceBoard, myBoard);
+                if (singlePiece) {
+                    return getSingleKnightBitmap(pieceBoard, myBoard);
+                } else {
+                    return getKnightBitmap(pieceBoard, myBoard);
+                }
             case Type.BISHOP:
                 return getBishopBitmap(pieceBoard, myBoard, enemyBoard);
             case Type.ROOK:
@@ -182,6 +186,10 @@ public class Piece {
         return onePush | doublePush | capture;
     }
 
+    private static long getSingleKnightBitmap(long pieceBoard, long myBoard) {
+        return LookupTables.KNIGHT[Bitboard.ls1bSquare(pieceBoard)] & ~myBoard;
+    }
+
     /**
      * @param pieceBoard
      * @param myBoard
@@ -239,17 +247,18 @@ public class Piece {
     }
 
     private static long getKingBitmap(long pieceBoard, long myBoard) {
-        long result = 0;
+        long result = LookupTables.KING[Bitboard.ls1bSquare(pieceBoard)];
+        result &= ~myBoard;
 
-        result |= (pieceBoard << NW) & ~(myBoard | Bitboard.getFile(File.H));
-        result |= (pieceBoard << N) & ~myBoard;
-        result |= (pieceBoard << NE) & ~(myBoard | Bitboard.getFile(File.A));
-        result |= (pieceBoard << E) & ~(myBoard | Bitboard.getFile(File.A));
-
-        result |= (pieceBoard >>> NW) & ~(myBoard | Bitboard.getFile(File.A));
-        result |= (pieceBoard >>> N) & ~myBoard;
-        result |= (pieceBoard >>> NE) & ~(myBoard | Bitboard.getFile(File.H));
-        result |= (pieceBoard >>> E) & ~(myBoard | Bitboard.getFile(File.H));
+        // result |= (pieceBoard << NW) & ~(myBoard | Bitboard.getFile(File.H));
+        // result |= (pieceBoard << N) & ~myBoard;
+        // result |= (pieceBoard << NE) & ~(myBoard | Bitboard.getFile(File.A));
+        // result |= (pieceBoard << E) & ~(myBoard | Bitboard.getFile(File.A));
+        //
+        // result |= (pieceBoard >>> NW) & ~(myBoard | Bitboard.getFile(File.A));
+        // result |= (pieceBoard >>> N) & ~myBoard;
+        // result |= (pieceBoard >>> NE) & ~(myBoard | Bitboard.getFile(File.H));
+        // result |= (pieceBoard >>> E) & ~(myBoard | Bitboard.getFile(File.H));
 
         return result;
     }
