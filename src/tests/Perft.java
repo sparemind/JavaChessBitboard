@@ -17,12 +17,12 @@ public class Perft {
         // Bitboard board = new Bitboard("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         // Bitboard board = new Bitboard("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0");
         Bitboard board = new Bitboard("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1");
-        // board.initStartingBoard();
+        board.initStartingBoard();
 
         long start = System.currentTimeMillis();
 
         // System.out.println(board);
-        System.out.println(perft(board, 4));
+        System.out.println(perft(board, 6));
         for (int i = 0; i < 6; i++) {
             // int nodes = perft(board, i);
             // System.out.printf("Depth %d - Nodes: %d\n", i, nodes);
@@ -46,20 +46,25 @@ public class Perft {
 
     public static int perft(Bitboard board, int depth) {
         if (depth <= 0) {
-            out.println(combs);
-            c++;
-            if (c % 10000 == 0) System.out.println(c);
+            // out.println(combs);
+            // c++;
+            // if (c % 10000 == 0) System.out.println(c);
             return 1;
         }
 
         List<Move> moves = board.generateMoves();
         int nodes = 0;
         for (Move m : moves) {
+            if (depth == 1) {
+                return moves.size();
+            }
+            // if (depth != 1) {
             board.applyMove(m);
-            combs.push(m.toString());
+            // combs.push(m.toString());
             nodes += perft(board, depth - 1);
-            combs.pop();
+            // combs.pop();
             board.undoMove();
+            // }
         }
         return nodes;
     }

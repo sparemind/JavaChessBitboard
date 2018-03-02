@@ -10,9 +10,9 @@ public class Piece {
     public static final int PLAYERS = 2;
 
     // Bit mask to get the lowest 7 bits of a byte
-    public static final byte TYPE_MASK = (byte) 0b01111111;
+    // public static final byte TYPE_MASK = (byte) 0b01111111;
     // Bit mask to get the highest bit of a byte
-    public static final byte COLOR_MASK = (byte) 0b10000000;
+    // public static final byte COLOR_MASK = (byte) 0b10000000;
     // Bit mask to get the lowest 4 bits of a byte
     public static final byte FILE_MASK = 0b00001111;
     // Bit mask to get the highest 4 bits of a byte
@@ -37,17 +37,17 @@ public class Piece {
     // Lowest 4 bits are the file, highest 4 bits are the rank
     public final byte position;
 
-    /**
-     * Creates a new piece.
-     *
-     * @param color     The color of the piece.
-     * @param pieceType The Type of this piece.
-     * @param position  The position of this piece on the board. The lowest 4
-     *                  bits are the file, the highest 4 bits are the rank.
-     */
-    public Piece(byte color, byte pieceType, byte position) {
-        this((byte) ((color << 7) | pieceType), position);
-    }
+    // /**
+    //  * Creates a new piece.
+    //  *
+    //  * @param color     The color of the piece.
+    //  * @param pieceType The Type of this piece.
+    //  * @param position  The position of this piece on the board. The lowest 4
+    //  *                  bits are the file, the highest 4 bits are the rank.
+    //  */
+    // public Piece(byte color, byte pieceType, byte position) {
+    //     this((byte) ((color << 7) | pieceType), position);
+    // }
 
     /**
      * Creates a new piece.
@@ -68,7 +68,8 @@ public class Piece {
      * @return The type of piece this is.
      */
     public byte type() {
-        return (byte) (this.piece & TYPE_MASK);
+        return this.piece;
+        // return (byte) (this.piece & TYPE_MASK);
     }
 
     /**
@@ -132,16 +133,21 @@ public class Piece {
      * @return
      */
     private static long getPawnBitmap(boolean isWhite, long pieceBoard, long myBoard, long enemyBoard, long enpassantBoard, boolean allAttacks) {
-        long thirdRank = isWhite ? Bitboard.getRank(2) : Bitboard.getRank(5);
+        long thirdRank;
         // The leftmost and rightmost files from the perspective of this player
-        long leftFile = isWhite ? Bitboard.getFile(File.A) : Bitboard.getFile(File.H);
-        long rightFile = isWhite ? Bitboard.getFile(File.H) : Bitboard.getFile(File.A);
+        long leftFile;
+        long rightFile;
 
+        // Bitmaps of moves
         long onePush;
         long doublePush;
         long attack = 0;
 
         if (isWhite) {
+            thirdRank = Bitboard.getRank(2);
+            leftFile = Bitboard.getFile(File.A);
+            rightFile = Bitboard.getFile(File.H);
+
             // All open squares that can be moved to by moving one square forward
             onePush = (pieceBoard << 8) & ~(myBoard | enemyBoard);
             // All open squares that can be moved to by moving two squares forward
@@ -151,6 +157,10 @@ public class Piece {
             attack |= (pieceBoard << (8 - 1)) & ~rightFile;
             attack |= (pieceBoard << (8 + 1)) & ~leftFile;
         } else {
+            thirdRank = Bitboard.getRank(5);
+            leftFile = Bitboard.getFile(File.H);
+            rightFile = Bitboard.getFile(File.A);
+
             // All open squares that can be moved to by moving one square forward
             onePush = (pieceBoard >>> 8) & ~(myBoard | enemyBoard);
             // All open squares that can be moved to by moving two squares forward

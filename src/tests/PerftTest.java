@@ -32,7 +32,8 @@ public class PerftTest {
             {400,     0,     0,   0, 0},
             {8902,    34,    0,   0, 0},
             {197281,  1576,  0,   0, 0},
-            {4865609, 82719, 258, 0, 0}
+            {4865609, 82719, 258, 0, 0},
+            // {119060324, 2812008, 5248, 0, 0}
         },
         {   // Position 2 ("Kiwipete")
             {48,      8,      0,    2,      0}, // Depth 1
@@ -128,10 +129,19 @@ public class PerftTest {
         }
 
         List<Move> moves = board.generateMoves();
+        // if (depth == 1) {
+        //     counts[0] += moves.size();
+        //     return;
+        // }
         for (Move m : moves) {
+            // long b = board.signature();
+
             board.applyMove(m);
+            // assertNotEquals(b, board.signature());
             perft(board, depth - 1, counts, m);
             board.undoMove();
+
+            // assertEquals(b, board.signature());
         }
     }
 }
