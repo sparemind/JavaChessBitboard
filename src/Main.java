@@ -6,12 +6,14 @@ import java.util.List;
 public class Main {
     public static void main(String[] args) {
         Bitboard b = new Bitboard("r3k2r/Pppp1ppp/1b3nbN/nP6/BBPNP3/q7/P2P2PP/r2Q1RK1 w kq -");
-        // b.initStartingBoard();
+        b.initStartingBoard();
 
         List<Move> moves = b.generateMoves();
         System.out.println(moves.size());
         System.out.println(moves);
         System.out.println(b);
+
+        System.out.println(b.fen());
         // b.applyMove(moves.get(16));
         // System.out.println(b);
         // moves = b.generateMoves();

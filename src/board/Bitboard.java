@@ -226,7 +226,7 @@ public class Bitboard {
      */
     private void init(String fen) {
         for (int player = 0; player < this.boards.length; player++) {
-            for (int piece = 0; piece < this.boards.length; piece++) {
+            for (int piece = 0; piece < NUM_PIECES; piece++) {
                 this.boards[player][piece] = 0L;
             }
         }
@@ -239,7 +239,7 @@ public class Bitboard {
         String castling = fenParts[2];
         String enpassant = fenParts[3];
         String halfmoves = "0";
-        String fullmoves = "0";
+        String fullmoves = "1";
         if (fenParts.length == 6) {
             halfmoves = fenParts[4];
             fullmoves = fenParts[5];
@@ -308,6 +308,67 @@ public class Bitboard {
 
         // The number of half-moves made in the game so far
         this.fullmoves = (short) (Integer.parseInt(fullmoves));
+    }
+
+    private char pieceAt(long square) {
+        long mask = 1L << square;
+
+        for (int player = 0; player < PLAYERS; player++) {
+            for (int piece = 0; piece < NUM_PIECES; piece++) {
+                if ((this.boards[player][piece] & mask) != 0) {
+                    return PIECES.charAt(piece + player * NUM_PIECES);
+                }
+            }
+        }
+        return Type.EMPTY;
+    }
+
+    public String fen() {
+        StringBuilder s = new StringBuilder();
+
+        int square = SQUARES - SIZE; // A8
+        for (int rank = SIZE - 1; rank >= 0; rank--) {
+            int empty = 0;
+            for (int file = 0; file < SIZE; file++) {
+                char piece = pieceAt(square);
+                if (piece == Type.EMPTY) {
+                    empty++;
+                } else {
+                    s.append(piece);
+                }
+                square++;
+            }
+            if (empty != 0) {
+                s.append(empty);
+            }
+            if (rank != 0) {
+                s.append('/');
+            }
+            square -= SIZE * 2;
+        }
+
+        s.append(' ');
+        s.append(this.whitesTurn ? 'w' : 'b');
+
+        s.append(' ');
+        s.append((this.possibleCastling & 0b0001) != 0 ? 'K' : "");
+        s.append((this.possibleCastling & 0b0010) != 0 ? 'Q' : "");
+        s.append((this.possibleCastling & 0b0100) != 0 ? 'k' : "");
+        s.append((this.possibleCastling & 0b1000) != 0 ? 'q' : "");
+        if (s.charAt(s.length() - 1) == ' ') {
+            s.append('-');
+        }
+
+        s.append(' ');
+        s.append(this.enpassantPosition == 0 ? '-' : new Piece((byte) 0, position(this.enpassantPosition)).toString());
+
+        s.append(' ');
+        s.append(this.halfmoveClock);
+
+        s.append(' ');
+        s.append(this.fullmoves);
+
+        return s.toString();
     }
 
     /**

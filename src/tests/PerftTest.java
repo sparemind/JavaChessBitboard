@@ -135,12 +135,14 @@ public class PerftTest {
         // }
         for (Move m : moves) {
             // long b = board.signature();
+            // String fen = board.fen();
 
             board.applyMove(m);
             // assertNotEquals(b, board.signature());
             perft(board, depth - 1, counts, m);
             board.undoMove();
 
+            // assertEquals(fen, board.fen());
             // assertEquals(b, board.signature());
         }
     }
