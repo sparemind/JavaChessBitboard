@@ -5,23 +5,23 @@ import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
-        Bitboard b = new Bitboard("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0");
+        Bitboard b = new Bitboard("r3k2r/Pppp1ppp/1b3nbN/nP6/BBPNP3/q7/P2P2PP/r2Q1RK1 w kq -");
         // b.initStartingBoard();
 
         List<Move> moves = b.generateMoves();
         System.out.println(moves.size());
         System.out.println(moves);
         System.out.println(b);
-        b.applyMove(moves.get(16));
-        System.out.println(b);
-        moves = b.generateMoves();
-        System.out.println(moves);
-        b.applyMove(moves.get(34));
-        System.out.println(b);
-        moves = b.generateMoves();
-        System.out.println(moves);
-        b.applyMove(moves.get(17));
-        System.out.println(b);
+        // b.applyMove(moves.get(16));
+        // System.out.println(b);
+        // moves = b.generateMoves();
+        // System.out.println(moves);
+        // b.applyMove(moves.get(34));
+        // System.out.println(b);
+        // moves = b.generateMoves();
+        // System.out.println(moves);
+        // b.applyMove(moves.get(17));
+        // System.out.println(b);
         // System.out.println(Long.toBinaryString(b.possibleCastling));
         // b.applyMove(moves.get(1));
         // b.undoMove();

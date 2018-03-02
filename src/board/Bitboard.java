@@ -80,6 +80,8 @@ public class Bitboard {
     private static final long KINGSIDE_CASTLE_MASK  = 0b01100000L;
     private static final long QUEENSIDE_CASTLE_MASK = 0b00001110L;
 
+    private static final long ROOK_MASK = 0x8100000000000081L;
+
     // Random bitstrings used for zobrist hashing
     private static final long[] ZOBRIST = new long[781];
     // Offsets determining where in ZOBRIST the zobrist bitstrings for each of
@@ -253,8 +255,12 @@ public class Bitboard {
         String turn = fenParts[1];
         String castling = fenParts[2];
         String enpassant = fenParts[3];
-        String halfmoves = fenParts[4];
-        String fullmoves = fenParts[5];
+        String halfmoves = "0";
+        String fullmoves = "0";
+        if (fenParts.length == 6) {
+            halfmoves = fenParts[4];
+            fullmoves = fenParts[5];
+        }
 
         // Board layout
         int square = SQUARES - SIZE; // A8
@@ -352,7 +358,7 @@ public class Bitboard {
         if (move.isCapture() && !move.isEnpassant()) {
             this.boards[1 - color][destPiece] &= ~(1L << destSquare);
 
-            if (destPiece == Type.ROOK) {
+            if (destPiece == Type.ROOK && ((destSquare & ROOK_MASK) != 0)) {
                 byte rookFile = move.dest.file();
                 byte mask = 0;
                 if (rookFile == File.H) {
@@ -385,15 +391,8 @@ public class Bitboard {
             mask <<= this.whitesTurn ? 0 : 2;
             this.possibleCastling &= ~mask;
         }
-        if (move.toString().equals("b4a3")) {
-            // System.out.println(move.code);
-            // System.out.println(Bitboard.bitmapToString(this.boards[1 - color][0]));
-        }
         // If an en passant move, TODO
         if (move.isEnpassant()) {
-            // TODO: Different files doesn't automatically mean en passant
-            // TODO: also need dest to be empty -- or: check if dest==enpassantPosition ???
-
             if (this.whitesTurn) {
                 this.boards[1 - color][Type.PAWN] &= ~((1L << destSquare) >>> SIZE);
             } else {
@@ -477,7 +476,7 @@ public class Bitboard {
         if (undoMove.move.isCapture() && !undoMove.move.isEnpassant()) {
             this.boards[1 - color][destPiece] |= 1L << destSquare;
 
-            if (destPiece == Type.ROOK) {
+            if (destPiece == Type.ROOK && ((destSquare & ROOK_MASK) != 0)) {
                 byte rookFile = undoMove.move.dest.file();
                 byte mask = 0;
                 if (rookFile == File.H) {
